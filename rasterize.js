@@ -155,8 +155,21 @@ function setupShaders() {
     
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
+        precision mediump float;
+
+        varying vec3 fragWorldPos; // interpolated world position from vertex shader
+
         void main(void) {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // all fragments are white
+            // blend a warm color at the bottom into a cool color at the top
+            vec3 warm = vec3(1.0, 0.45, 0.10);
+            vec3 cool = vec3(0.10, 0.55, 0.95);
+            vec3 color = mix(warm, cool, clamp(fragWorldPos.y, 0.0, 1.0));
+
+            // add diagonal stripes so the shapes read as patterned, not flat
+            float stripe = 0.5 + 0.5 * sin(40.0 * (fragWorldPos.x + fragWorldPos.y));
+            color *= 0.65 + 0.35 * stripe;
+
+            gl_FragColor = vec4(color, 1.0);
         }
     `;
     
@@ -164,8 +177,24 @@ function setupShaders() {
     var vShaderCode = `
         attribute vec3 vertexPosition;
 
+        varying vec3 fragWorldPos; // pass world position on to the fragment shader
+
         void main(void) {
-            gl_Position = vec4(vertexPosition, 1.0); // use the untransformed position
+            vec3 pos = vertexPosition;
+
+            // reshape: grow the model about the center of the window
+            pos.xy = vec2(0.5) + 1.15 * (pos.xy - vec2(0.5));
+
+            // reshape: bow the model sideways as a function of height
+            pos.x += 0.10 * sin(6.2831853 * pos.y);
+
+            // move: slide the whole model to the right in world space
+            pos.x += 0.12;
+
+            fragWorldPos = pos;
+
+            // map world space [0,1] onto the whole canvas instead of one corner
+            gl_Position = vec4(2.0 * pos.xy - 1.0, pos.z, 1.0);
         }
     `;
     
